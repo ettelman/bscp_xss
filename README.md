@@ -1,7 +1,5 @@
 # BSCP XSS – four local filter labs with a bot
 
-A local teaching app with a step-by-step BSCP XSS guide, Burp Repeater **Scan insertion point** guidance, two DOM XSS labs, one server-reflected XSS lab, one stored XSS lab, and a headless Chromium bot. Each lab has a hint and a collapsible **Reveal answer**. The app also includes a separate **XSS Notes** reference page. The bot uses a fake, JavaScript-readable cookie and can visit only the local training app; successful payloads send that test cookie to the local receiver.
-
 ## Run with Docker
 
 Requires Docker Engine and the Docker Compose plugin. The container includes the matching Playwright Chromium runtime.
@@ -26,14 +24,6 @@ Open <http://127.0.0.1:3000>. Stop the server with `Ctrl+C`.
 
 Place `main.png`, `1.png`, and `2.png` beside `server.js`. The overview loads these files for the hero image and the two screenshots under **Find the context**. Missing images simply show as unavailable until you add them.
 
-## Testing workflow
-
-1. Follow the overview guide: submit a unique marker, locate it in Burp history/Repeater and inspect the response and live DOM.
-2. Open an exercise in its own window. Use the search field in Labs 1–3; in Lab 4, submit a comment and inspect how it is rendered. Visit `/notes` for the XSS reference notes.
-3. Try a harmless proof of execution. Use the hint, then **Reveal answer**, if needed.
-4. Return to the overview and choose the matching lab. Paste the verified payload and build its link; for Lab 4, post the payload first and build a link to the comments page.
-5. Send the generated link to the local bot and look for the fake cookie in the receiver log.
-
 ## Labs
 
 1. DOM XSS through `document.write` inside a `select`; context breakout and a case-sensitive script filter.
@@ -48,7 +38,3 @@ Place `main.png`, `1.png`, and `2.png` beside `server.js`. The overview loads th
 - The bot blocks HTTP and WebSocket requests to other origins.
 - The cookie is random `DEMO_ONLY_...` data. Never use real session values.
 - The app is intentionally vulnerable and for local teaching only. The comment store is in memory and is cleared when the server restarts. Use PortSwigger's own exploit server for PortSwigger labs.
-
-## Repository contents
-
-`Dockerfile` and `compose.yaml` provide the local container setup. `.gitignore` and `.dockerignore` exclude local dependencies and generated archives. Add `main.png`, `1.png`, and `2.png` if you want the overview screenshots included in your repository.
