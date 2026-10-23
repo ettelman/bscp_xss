@@ -22,8 +22,6 @@ npm start
 
 Open <http://127.0.0.1:3000>. Stop the server with `Ctrl+C`.
 
-Place `main.png`, `1.png`, and `2.png` beside `server.js`. The overview loads these files for the hero image and the two screenshots under **Find the context**. Missing images simply show as unavailable until you add them.
-
 ## Labs
 
 1. DOM XSS through `document.write` inside a `select`; context breakout and a case-sensitive script filter.
